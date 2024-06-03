@@ -49,6 +49,7 @@ func init() {
 
 func StressTest(url string, requests int, concurrency int) {
 	// Record the start time
+	log.Println("Iniciando teste de stress...")
 	startTime := time.Now()
 
 	// Create a channel to communicate with the workers
@@ -60,7 +61,7 @@ func StressTest(url string, requests int, concurrency int) {
 
 	// Create the workers
 	for i := 0; i < concurrency; i++ {
-		go worker(url, jobs, results, &wg, i)
+		go worker(url, jobs, results, &wg)
 	}
 
 	// Add the jobs to the jobs channel
@@ -76,10 +77,10 @@ func StressTest(url string, requests int, concurrency int) {
 	wg.Wait()
 
 	// Record the end time
-    endTime := time.Now()
+	endTime := time.Now()
 
-    // Calculate the duration
-    duration := endTime.Sub(startTime)
+	// Calculate the duration
+	duration := endTime.Sub(startTime)
 
 	// Create a map to store the results
 	statusCodes := make(map[int]int)
@@ -105,7 +106,7 @@ func StressTest(url string, requests int, concurrency int) {
 
 }
 
-func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup, workeID int) {
+func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup) {
 
 	// Create a new HTTP client
 	client := &http.Client{}
@@ -120,9 +121,7 @@ func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup,
 	req.Header.Set("User-Agent", "Test")
 
 	// Loop over the jobs channel
-	for i := range jobs {
-
-		log.Printf("Worker %d enviando requisição %d", workeID, i)
+	for range jobs {
 
 		// Send the request
 		resp, err := client.Do(req)

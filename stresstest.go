@@ -2,7 +2,6 @@ package main
 
 import (
 	//"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -31,6 +30,11 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+type Requests struct {
+	requisicoes_feitas   int
+	requisicoes_com_erro int
+}
+
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -55,13 +59,14 @@ func StressTest(url string, requests int, concurrency int) {
 	// Create a channel to communicate with the workers
 	jobs := make(chan int, requests)
 	results := make(chan int, requests)
+	controle := Requests{requisicoes_feitas: 0, requisicoes_com_erro: 0}
 
 	// Create a wait group to wait for all the workers to finish
 	var wg sync.WaitGroup
 
 	// Create the workers
 	for i := 0; i < concurrency; i++ {
-		go worker(url, jobs, results, &wg)
+		go worker(url, jobs, results, &wg, &controle)
 	}
 
 	// Add the jobs to the jobs channel
@@ -86,17 +91,15 @@ func StressTest(url string, requests int, concurrency int) {
 	statusCodes := make(map[int]int)
 
 	// Loop over the results channel
-	qtdRequests := 0
-	for i := 0; i < requests; i++ {
+	for range controle.requisicoes_feitas {
 		statusCode := <-results
 		statusCodes[statusCode]++
-		qtdRequests++
 	}
 
 	// Print the results
 	log.Println("Resultados:")
 	log.Printf("Tempo total: %s", duration)
-	log.Printf("Total de requisições: %d", qtdRequests)
+	log.Printf("Total de requisições feitas: %d", controle.requisicoes_feitas)
 	for statusCode, count := range statusCodes {
 		log.Printf("Número de requisições com status %d: %d", statusCode, count)
 	}
@@ -106,7 +109,7 @@ func StressTest(url string, requests int, concurrency int) {
 
 }
 
-func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup) {
+func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup, controle *Requests) {
 
 	// Create a new HTTP client
 	client := &http.Client{}
@@ -126,20 +129,13 @@ func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup)
 		// Send the request
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			controle.requisicoes_com_erro = controle.requisicoes_com_erro + 1
+		} else {
+			controle.requisicoes_feitas = controle.requisicoes_feitas + 1
+			results <- resp.StatusCode
 		}
-
-		// Read the response body
-		_, err = io.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Close the response body
 		resp.Body.Close()
-
-		// Send the result to the results channel
-		results <- resp.StatusCode
 		wg.Done()
 	}
 }

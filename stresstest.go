@@ -64,39 +64,33 @@ func StressTest(url string, requests int, concurrency int) {
 	// Create a wait group to wait for all the workers to finish
 	var wg sync.WaitGroup
 
-	// Create the workers
+	// Workers de acordo com quantidade de concorrência
 	for i := 0; i < concurrency; i++ {
 		go worker(url, jobs, results, &wg, &controle)
 	}
 
-	// Add the jobs to the jobs channel
 	for i := 0; i < requests; i++ {
 		wg.Add(1)
 		jobs <- i
 	}
 
-	// Close the jobs channel
 	close(jobs)
-
-	// Wait for all the workers to finish
 	wg.Wait()
 
-	// Record the end time
+	// Tempo final do teste
 	endTime := time.Now()
-
-	// Calculate the duration
 	duration := endTime.Sub(startTime)
 
-	// Create a map to store the results
+	// Dicionário status code e quantidade
 	statusCodes := make(map[int]int)
 
-	// Loop over the results channel
+	// Consumindo canal de resultados
 	for range requests {
 		statusCode := <-results
 		statusCodes[statusCode]++
 	}
 
-	// Print the results
+	// Resultados
 	log.Println("Resultados:")
 	log.Printf("Tempo total: %s", duration)
 	log.Printf("Total de requisições feitas: %d", controle.requisicoes_feitas)
@@ -105,29 +99,25 @@ func StressTest(url string, requests int, concurrency int) {
 		log.Printf("Número de requisições com status %d: %d", statusCode, count)
 	}
 
-	// Close the results channel
 	close(results)
 
 }
 
 func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup, controle *Requests) {
 
-	// Create a new HTTP client
+	// Criando cliente http
 	client := &http.Client{}
 
-	// Create a new request
+	// Criando requisição
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Set the User-Agent header
-	req.Header.Set("User-Agent", "Test")
-
-	// Loop over the jobs channel
+	// Loop
 	for range jobs {
 
-		// Send the request
+		// Enviando requisição
 		resp, err := client.Do(req)
 		if err != nil {
 			results <- resp.StatusCode

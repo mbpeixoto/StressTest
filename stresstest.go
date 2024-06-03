@@ -100,6 +100,7 @@ func StressTest(url string, requests int, concurrency int) {
 	log.Println("Resultados:")
 	log.Printf("Tempo total: %s", duration)
 	log.Printf("Total de requisições feitas: %d", controle.requisicoes_feitas)
+	log.Printf("Total de requisições com erro: %d", controle.requisicoes_com_erro)
 	for statusCode, count := range statusCodes {
 		log.Printf("Número de requisições com status %d: %d", statusCode, count)
 	}
@@ -129,7 +130,6 @@ func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup,
 		// Send the request
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Println(err)
 			controle.requisicoes_com_erro = controle.requisicoes_com_erro + 1
 		} else {
 			controle.requisicoes_feitas = controle.requisicoes_feitas + 1

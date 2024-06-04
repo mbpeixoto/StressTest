@@ -2,6 +2,7 @@ package main
 
 import (
 	//"fmt"
+	"crypto/tls"
 	"log"
 	"net/http"
 	"os"
@@ -108,7 +109,11 @@ func StressTest(url string, requests int, concurrency int) {
 func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup, controle *Requests) {
 
 	// Criando cliente http
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 
 	for range jobs {
 		// Criando requisição

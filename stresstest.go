@@ -33,6 +33,7 @@ var rootCmd = &cobra.Command{
 type Requests struct {
 	requisicoes_feitas   int
 	requisicoes_com_erro int
+	mu                   sync.Mutex
 }
 
 func Execute() {
@@ -69,8 +70,9 @@ func StressTest(url string, requests int, concurrency int) {
 		go worker(url, jobs, results, &wg, &controle)
 	}
 
+	wg.Add(requests)
+
 	for i := 0; i < requests; i++ {
-		wg.Add(1)
 		jobs <- i
 	}
 
@@ -108,25 +110,27 @@ func worker(url string, jobs <-chan int, results chan<- int, wg *sync.WaitGroup,
 	// Criando cliente http
 	client := &http.Client{}
 
-	// Criando requisição
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Loop
 	for range jobs {
+		// Criando requisição
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		// Enviando requisição
 		resp, err := client.Do(req)
 		if err != nil {
-			results <- resp.StatusCode
-			controle.requisicoes_com_erro = controle.requisicoes_com_erro + 1
+			controle.mu.Lock()
+			controle.requisicoes_com_erro++
+			controle.mu.Unlock()
+			results <- 0
 		} else {
-			controle.requisicoes_feitas = controle.requisicoes_feitas + 1
+			controle.mu.Lock()
+			controle.requisicoes_feitas++
+			controle.mu.Unlock()
 			results <- resp.StatusCode
+			resp.Body.Close()
 		}
-		resp.Body.Close()
 		wg.Done()
 	}
 }
